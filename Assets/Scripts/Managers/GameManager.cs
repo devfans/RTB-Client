@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace RTBClient
 {
-    public class GameManager : MonoBehaviour
+    public class TankWorld : IClassicWorld
     {
         public int m_NumRoundsToWin = 5;            // The number of rounds a single player has to win to win the game.
         public float m_StartDelay = 3f;             // The delay between the start of RoundStarting and RoundPlaying phases.
@@ -23,8 +23,34 @@ namespace RTBClient
         private TankManager m_GameWinner;           // Reference to the winner of the game.  Used to make an announcement of who won.
 
 
+
+        public override void OnReady()
+        {
+            Start();
+        }
+
+        public override void Setup()
+        {
+            m_CameraControl = ApplicationManager.FindObjectOfType<CameraControl>();
+            m_MessageText = ApplicationManager.FindObjectOfType<Text>();
+            m_TankPrefab = (GameObject)Resources.Load("CompleteTank", typeof(GameObject));
+
+            var tank1 = new TankManager();
+            var transform1 = new GameObject();
+            tank1.m_PlayerColor = Color.red;
+            tank1.m_SpawnPoint = transform1.transform;
+            
+            var tank2 = new TankManager();
+            var transform2 = new GameObject();
+            tank2.m_PlayerColor = Color.blue;
+            tank2.m_SpawnPoint = transform2.transform;
+            m_Tanks = new TankManager[2] { tank1, tank2 };
+        }
+
+
         private void Start()
         {
+            logger.info("Starting tank game");
             // Create the delays so they only have to be made once.
             m_StartWait = new WaitForSeconds (m_StartDelay);
             m_EndWait = new WaitForSeconds (m_EndDelay);
@@ -44,7 +70,7 @@ namespace RTBClient
             {
                 // ... create them, set their player number and references needed for control.
                 m_Tanks[i].m_Instance =
-                    Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
+                    ApplicationManager.Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
                 m_Tanks[i].m_PlayerNumber = i + 1;
                 m_Tanks[i].Setup();
             }

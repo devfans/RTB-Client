@@ -10,7 +10,17 @@ namespace RTBClient
         [HideInInspector] public Transform[] m_Targets; // All the targets the camera needs to encompass.
 
 
-        private Camera m_Camera;                        // Used for referencing the camera.
+        private Camera m_Camera                        // Used for referencing the camera.
+        {
+            get { 
+                if (m_CameraChild == null)
+                    m_CameraChild = GetComponentInChildren<Camera>();
+
+                return m_CameraChild;
+            } 
+        }
+
+        private Camera m_CameraChild;
         private float m_ZoomSpeed;                      // Reference speed for the smooth damping of the orthographic size.
         private Vector3 m_MoveVelocity;                 // Reference velocity for the smooth damping of the position.
         private Vector3 m_DesiredPosition;              // The position the camera is moving towards.
@@ -18,7 +28,6 @@ namespace RTBClient
 
         private void Awake ()
         {
-            m_Camera = GetComponentInChildren<Camera> ();
         }
 
 
