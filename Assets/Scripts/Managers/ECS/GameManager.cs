@@ -4,9 +4,65 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using ECS;
+using MessageQueue = System.Collections.Concurrent.ConcurrentQueue<Message>;
+using PlayerId = System.UInt32;
 
 namespace RTBClient
 {
+    public class RTBClientSession: ISession
+    {
+        private Logging.Logger logger = Logging.Logger.GetLogger("RTBClientSession");
+        private MessageQueue m_queue = new MessageQueue();
+
+        public void Handle(string str)
+        {
+            logger.info(string.Format("REV: {0}", str));
+            SendString(str);
+        }
+
+        public void HandleMessage(Message message)
+        {
+            logger.debug("Message rev: {0}, current queue length {1}", message.type, m_queue.Count);
+            m_queue.Enqueue(message);
+        }
+
+        public void Setup()
+        {
+            AttachSessionStatusDelegates(OnConnected, SessionStatus.Connected);
+            AttachSessionStatusDelegates(OnConnecting, SessionStatus.Connecting);
+            // AttachStringRevHandler(Handle);
+            AttachMessageRevHandler(HandleMessage);
+        }
+
+        public void OnConnected()
+        {
+            logger.info("Connection established!");
+        }
+
+        public void OnConnecting()
+        {
+            logger.info("Connecting to server!");
+        }
+
+        public Message GetMessage()
+        {
+            Message message;
+            m_queue.TryDequeue(out message);
+            return message;
+        }
+
+        public int GetMessageLength()
+        {
+            return m_queue.Count;
+        }
+
+        public void SendMessage(Message message)
+        {
+            SendData(MessageManager.Encode(message));
+        }
+
+    }
+
     public class TankWorldECS : IECSWorld
     {
         public int m_NumRoundsToWin = 5;            // The number of rounds a single player has to win to win the game.
@@ -21,7 +77,12 @@ namespace RTBClient
 
         public Tank[] m_tanks;
 
-        private bool m_watching = true;
+        private bool m_watching = false;
+
+        public string m_ip = "127.0.0.1";
+        public int m_port = 5050;
+        public RTBClientSession m_session;
+        public PlayerId m_player = 0;
 
 
         public override void OnReady()
@@ -29,8 +90,32 @@ namespace RTBClient
             Start();
         }
 
+        public void SetupNetwork()
+        {
+            m_session = NetworkManager.CreateSession<TcpProtocol, RTBClientSession>(m_ip, m_port);
+            m_session.Setup();
+
+            m_session.Connect();
+        }
+
+        public override Message GetNetMessage()
+        {
+            return m_session.GetMessage();
+        }
+
+        public override int GetNetMessageLength()
+        {
+            return m_session.GetMessageLength();
+        }
+
+        public override void SendNetMessage(Message message)
+        {
+            m_session.SendMessage(message);
+        }
+
         public override void Setup()
         {
+            SetupNetwork();
             m_CameraControl = ApplicationManager.FindObjectOfType<CameraControl>();
             Transform[] targets = new Transform[2];
 
@@ -75,9 +160,16 @@ namespace RTBClient
 
             m_CameraControl.m_Targets = targets;
 
-            var movement = new MovementSystem();
+            SetupSystem();
+        }
+
+        public void SetupSystem()
+        {
+            var movement = new MovementSystem(this);
+            movement.m_enabled = false;
             AttachSystem(movement);
         }
+
 
         private void Start()
         {
@@ -85,7 +177,7 @@ namespace RTBClient
             // Create the delays so they only have to be made once.
             m_watchWait = new WaitForSeconds (m_watchDelay);
 
-            SpawnAllTanks();
+            // SpawnAllTanks();
             StartCoroutine(GameLoop());
         }
 
@@ -101,12 +193,79 @@ namespace RTBClient
 
         private IEnumerator GameLoop()
         {
+            yield return StartCoroutine(GameInit());
+            yield return StartCoroutine(GameMeta());
+            yield return StartCoroutine(GameStart());
+        }
+
+        private IEnumerator GameInit()
+        {
+            while (true)
+            {
+                Message message = GetNetMessage();
+                if (message != null && message.type == MessageType.BattleInit)
+                {
+                    logger.info("Battle init success!");
+                    break;
+                }
+                else
+                {
+                    SendNetMessage(new BattleInitMessage() { player = m_player });
+                    yield return new WaitForSeconds(1);
+                }
+            }
+            yield return null;
+        }
+
+        private IEnumerator GameMeta()
+        {
+            while (true)
+            {
+                Message message = GetNetMessage();
+                if (message != null && message.type == MessageType.BattleMeta)
+                {
+                    var msg = (BattleMetaMessage)message;
+                    //TODO  Setup battle meta
+                    m_player = msg.player;
+                    SendNetMessage(new BattleMetaMessage() { player = m_player });
+                    logger.debug("Battle meta retrieve success, player id {0}!", m_player);
+                    break;
+                }
+                else
+                {
+                    yield return new WaitForSeconds(1);
+                }
+            }
+            yield return null;
+        }
+
+        private IEnumerator GameStart()
+        {
+            while (true)
+            {
+                Message message = GetNetMessage();
+                if (message != null && message.type == MessageType.BattleStart)
+                {
+                    SendNetMessage(new BattleStartMessage() { });
+                    logger.info("Battle is starting");
+                    break;
+                }
+                else
+                {
+                    yield return new WaitForSeconds(1);
+                }
+            }
+            yield return null;
+        }
+
+        private IEnumerator WatchGameLoop()
+        {
             // Start off by running the 'RoundStarting' coroutine but don't return until it's finished.
             WatchGame();
             yield return m_watchWait;
 
             if (m_watching)
-                StartCoroutine(GameLoop());
+                StartCoroutine(WatchGameLoop());
         }
 
         private void WatchGame()
