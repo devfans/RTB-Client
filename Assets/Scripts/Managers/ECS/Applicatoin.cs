@@ -8,8 +8,7 @@ public class TankGameECS : IApplicationInstance
     public override void OnCreate()
     {
         logger.info("Creating tank game ecs world");
-        RTBClient.TankWorldECS world = (RTBClient.TankWorldECS)WorldManager.NewWorld<RTBClient.TankWorldECS>();
-
+        RTBClient.RTBTankWorld world = (RTBClient.RTBTankWorld)WorldManager.NewWorld<RTBClient.RTBTankWorld>();
     }
 
     public override void OnEnter()
