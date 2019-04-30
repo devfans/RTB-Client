@@ -26,6 +26,12 @@ namespace RTBClient
         public Tank[] m_tanks;
         private bool m_watching = false;
 
+        private ECS.System m_preprocessSystem; 
+        private ECS.System m_postprocessSystem; 
+        private ECS.System m_movementSystem;
+
+
+
         private IEnumerator WatchGameLoop()
         {
             // Start off by running the 'RoundStarting' coroutine but don't return until it's finished.
@@ -38,7 +44,7 @@ namespace RTBClient
 
         private void WatchGame()
         {
-            foreach (var entity in Entities)
+            foreach (var entity in Entities.Values)
             {
                 logger.info(string.Format("Checking entity {0} component{1}", entity.m_code.str(), MovementComponent.s_code.str()));
                 MovementComponent movement = (MovementComponent)ComponentManager.GetEntityComponent(entity.m_code, MovementComponent.s_code);
@@ -85,6 +91,7 @@ namespace RTBClient
             movement1.position = new Vector3(15, 0, 2);
             movement1.velocity = 5;
             movement1.axisMoveName = "Vertical1";
+            movement1.inputEnabled = true;
 
             movement1.turnSpeed = 180;
             movement1.axisTurnName = "Horizontal1";
@@ -92,10 +99,11 @@ namespace RTBClient
             var movement2 = (MovementComponent)ComponentManager.GetEntityComponent(tank2.m_code, MovementComponent.s_code);
             movement2.position = new Vector3(-10, 0, 2);
             movement2.velocity = 5;
-            movement2.axisMoveName = "Vertical2";
+            movement2.axisMoveName = "Vertical1";
+            movement2.inputEnabled = true;
 
             movement2.turnSpeed = 180;
-            movement2.axisTurnName = "Horizontal2";
+            movement2.axisTurnName = "Horizontal1";
 
 
             ActorComponent actor1 = (ActorComponent)ComponentManager.GetEntityComponent(tank1.m_code, ActorComponent.s_code);
@@ -118,15 +126,46 @@ namespace RTBClient
 
         public void SetupSystem()
         {
-            var preprocess = new RTBPreProcessSystem(this);
-            AttachSystem(preprocess);
+            m_preprocessSystem = new RTBPreProcessSystem(this);
+            m_preprocessSystem.m_enabled = false;
+            AttachSystem(m_preprocessSystem);
 
-            var movement = new MovementSystem(this);
-            movement.m_enabled = false;
-            AttachSystem(movement);
+            m_movementSystem = new RTBMovementSystem(this);
+            m_movementSystem.m_enabled = false;
+            AttachSystem(m_movementSystem);
 
-            var postprocess = new RTBPostProcessSystem(this);
-            AttachSystem(postprocess);
+            m_postprocessSystem = new RTBPostProcessSystem(this);
+            m_postprocessSystem.m_enabled = false;
+            AttachSystem(m_postprocessSystem);
         }
+
+        public override void SetupGameMeta()
+        {
+            base.SetupGameMeta();
+           
+            m_tanks[0].m_local = m_player == 2;
+            m_tanks[1].m_local = m_player == 1;
+
+            foreach( var tank in m_tanks)
+            {
+                var movement = (MovementComponent)ComponentManager.GetEntityComponent(tank.m_code, MovementComponent.s_code);
+                logger.debug("player {0}, position {1}, rotation {2}, velocity {3}, turnSpeed {4}, axisMove {5}, axisTurn {6}",
+                    tank.m_local? "local" : "remote",
+                    movement.position, movement.rotation, movement.velocity, 
+                    movement.turnSpeed,
+                    movement.axisMoveName, movement.axisTurnName);
+            }
+
+        }
+
+        public override void StartBattle()
+        {
+            base.StartBattle();
+            m_preprocessSystem.m_enabled = true;
+            m_movementSystem.m_enabled = true;
+            m_postprocessSystem.m_enabled = true;
+        }
+
+
     }
 }
