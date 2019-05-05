@@ -19,6 +19,10 @@ namespace RTBClient
         public CameraControl m_CameraControl;       // Reference to the CameraControl script for control during different phases.
         public Text m_MessageText;                  // Reference to the overlay Text to display winning text, etc.
         public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
+        public InputField input_serverIp;
+        public InputField input_serverPort;
+        public Button button_connect;
+        public Text text_status;
 
 
         private WaitForSeconds m_watchWait;         // Used to have a delay whilst the round starts.
@@ -59,6 +63,17 @@ namespace RTBClient
             m_watchWait = new WaitForSeconds(m_watchDelay);
 
             // SpawnAllTanks();
+            button_connect.onClick.AddListener(Connect);
+        }
+
+        public void Connect()
+        {
+            m_ip = input_serverIp.text;
+            m_port = Int32.Parse(input_serverPort.text);
+            text_status.text = string.Format("Connecting to {0}:{1}", m_ip, m_port);
+            logger.debug("Connecting to {0}:{1}", m_ip, m_port);
+
+            SetupNetwork();
             StartCoroutine(GameLoop());
         }
 
@@ -74,13 +89,18 @@ namespace RTBClient
 
         public override void Setup()
         {
-            SetupNetwork();
+            // SetupNetwork();
             m_CameraControl = ApplicationManager.FindObjectOfType<CameraControl>();
             Transform[] targets = new Transform[2];
 
             m_MessageText = ApplicationManager.FindObjectOfType<Text>();
             m_MessageText.text = "";
             m_TankPrefab = (GameObject)Resources.Load("TankECS", typeof(GameObject));
+
+            input_serverIp = GameObject.Find("ServerIp").GetComponent<InputField>();
+            input_serverPort = GameObject.Find("ServerPort").GetComponent<InputField>();
+            button_connect = GameObject.Find("Connect").GetComponent<Button>();
+            text_status = GameObject.Find("Status").GetComponent<Text>();
 
             var tank1 = new Tank() { name = "player 1" };
             var tank2 = new Tank() { name = "player 2" };
@@ -161,6 +181,12 @@ namespace RTBClient
         public override void StartBattle()
         {
             base.StartBattle();
+            text_status.text = string.Format("Connected to {0}:{1}", m_ip, m_port);
+            logger.info(string.Format("Connected to {0}:{1}", m_ip, m_port));
+            button_connect.gameObject.SetActive(false);
+            input_serverIp.gameObject.SetActive(false);
+            input_serverPort.gameObject.SetActive(false);
+            m_MessageText.text = "";
             m_preprocessSystem.m_enabled = true;
             m_movementSystem.m_enabled = true;
             m_postprocessSystem.m_enabled = true;
