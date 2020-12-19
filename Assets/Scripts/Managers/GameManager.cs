@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using LevelStore;
 
 namespace RTBClient
 {
@@ -15,7 +17,7 @@ namespace RTBClient
         public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
         public TankManager[] m_Tanks;               // A collection of managers for enabling and disabling different aspects of the tanks.
 
-        
+
         private int m_RoundNumber;                  // Which round the game is currently on.
         private WaitForSeconds m_StartWait;         // Used to have a delay whilst the round starts.
         private WaitForSeconds m_EndWait;           // Used to have a delay whilst the round or game ends.
@@ -39,7 +41,7 @@ namespace RTBClient
             var transform1 = new GameObject();
             tank1.m_PlayerColor = Color.red;
             tank1.m_SpawnPoint = transform1.transform;
-            
+
             var tank2 = new TankManager();
             var transform2 = new GameObject();
             tank2.m_PlayerColor = Color.blue;
@@ -52,14 +54,21 @@ namespace RTBClient
         {
             logger.info("Starting tank game");
             // Create the delays so they only have to be made once.
-            m_StartWait = new WaitForSeconds (m_StartDelay);
-            m_EndWait = new WaitForSeconds (m_EndDelay);
+            m_StartWait = new WaitForSeconds(m_StartDelay);
+            m_EndWait = new WaitForSeconds(m_EndDelay);
 
             SpawnAllTanks();
             SetCameraTargets();
 
             // Once the tanks have been created and the camera is using them as targets, start the game.
-            StartCoroutine (GameLoop ());
+            StartCoroutine(GameLoop());
+
+            // test level state
+
+        }
+
+        private void ListLevels(StoreResponse<List<string>> res) {
+            Debug.Log(res);
         }
 
 

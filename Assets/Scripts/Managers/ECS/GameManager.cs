@@ -9,6 +9,7 @@ using MessageQueue = System.Collections.Concurrent.ConcurrentQueue<Message>;
 using MessagePipe = System.Collections.Concurrent.BlockingCollection<GameAction>;
 using PlayerId = System.UInt32;
 using ActionList = System.Collections.Generic.List<GameAction>;
+using LevelStore;
 
 namespace RTBClient
 {
@@ -34,6 +35,7 @@ namespace RTBClient
         private ECS.System m_postprocessSystem; 
         private ECS.System m_movementSystem;
 
+        private StoreClient client = new StoreClient("http://localhost:8001/v1");
 
 
         private IEnumerator WatchGameLoop()
@@ -64,6 +66,28 @@ namespace RTBClient
 
             // SpawnAllTanks();
             button_connect.onClick.AddListener(Connect);
+			// test level state
+			StartCoroutine(client.ListLevels(ListLevels));
+            StartCoroutine(client.SaveLevel("dexter", "ddddd", SavedLevel));
+            
+            
+		}
+
+        private void GotLevelRevisions(in StoreResponse<List<string>> res) {
+            Debug.Log(JsonUtility.ToJson(res));
+
+            StartCoroutine(client.FetchLevel("dexter", res.result[0], GotLevelRevision));
+        }
+
+        private void GotLevelRevision(in StoreResponse<LevelState> res)
+        {
+            Debug.Log(JsonUtility.ToJson(res));
+
+        }
+
+        private void SavedLevel(in StoreResponse<object> res) {
+            Debug.Log(JsonUtility.ToJson(res));
+            StartCoroutine(client.ListLevelRevisions("dexter", GotLevelRevisions));
         }
 
         public void Connect()
@@ -77,8 +101,15 @@ namespace RTBClient
             StartCoroutine(GameLoop());
         }
 
+	    private void ListLevels(in StoreResponse<List<string>> res)
+	    {
+            foreach (string path in res.result) {
+				Debug.Log(path);
+			}
+	    }
 
-        private void SpawnAllTanks()
+
+	    private void SpawnAllTanks()
         {
             // For all the tanks...
             for (int i = 0; i < m_tanks.Length; i++)
